@@ -1,0 +1,165 @@
+ /*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package edu.msu.cme.rdp.kmer;
+
+import java.util.Arrays;
+import java.util.Random;
+
+/**
+ *
+ * @author fishjord
+ */
+public class Kmer {
+
+    public static final int a = 0, g = 1, c = 2, t = 3;
+    public static final char[] intToChar = new char[]{'a', 'g', 'c', 't'};
+    public static final byte[] validateLookup = new byte[127];
+    public static final byte[] complementLookup = new byte[127];
+
+    static {
+        validateLookup['A'] = a;
+        validateLookup['C'] = c;
+        validateLookup['G'] = g;
+        validateLookup['T'] = t;
+        validateLookup['a'] = a;
+        validateLookup['c'] = c;
+        validateLookup['g'] = g;
+        validateLookup['t'] = t;
+        validateLookup['U'] = t;
+        validateLookup['u'] = t;
+
+        Arrays.fill(complementLookup, (byte) -1);
+
+        complementLookup['A'] = t;  // A
+        complementLookup['T'] = a;  // T
+        complementLookup['U'] = a;  // U
+        complementLookup['G'] = c;  // G
+        complementLookup['C'] = g;  // C
+
+        complementLookup[a] = t;  // a
+        complementLookup[t] = a;  // t
+        complementLookup[g] = c;  // g
+        complementLookup[c] = g;  // c
+    }
+    private final long[] kmer;
+    private final int k;
+    private final int lastFill;
+    private final long lastMask;
+
+    /**
+     *
+     * acgt
+     *    a
+     *   ac
+     *  acg
+     * acgt
+     *
+     * @param charKmer
+     */
+    public Kmer(char[] charKmer) {
+        this(charKmer.length);
+
+        int i = 0;
+        int l = 0;
+        byte b;
+
+        /*
+         * So this is mildly complicated We want to store the kmer in
+         * little-endian byte order so that the shifts make logical sense (right
+         * = >> and left = <<), but that means storing the kmer kind of
+         * backwards in the array...
+         */
+        for (int index = 0; index < charKmer.length; index++) {
+            b = validateLookup[charKmer[index]];
+            if (b == -1) {
+                throw new IllegalArgumentException("Kmer contains one or more invalid bases (" + new String(charKmer) + ")");
+            }
+
+            kmer[l] = (kmer[l] << 2) | (b & 0x3);
+
+            i++;
+            if (i >= 32) {
+                i = 0;
+                l++;
+            }
+        }
+    }
+
+    private Kmer(int k) {
+        this.k = k;
+        int length = (int) Math.ceil(k / 32.0);
+        lastFill = 32 - (32 * length - k);
+        lastMask = (long)Math.pow(2, lastFill * 2) - 1;
+        kmer = new long[length];
+	System.err.println("length: " + length);
+	System.err.println("lastFill: " + lastFill);
+	System.err.println("lastMask: " + Long.toBinaryString(lastMask));
+    }
+
+    private Kmer(Kmer k) {
+        this.k = k.k;
+        this.kmer = Arrays.copyOf(k.kmer, k.kmer.length);
+        this.lastFill = k.lastFill;
+        this.lastMask = k.lastMask;
+    }
+
+    public Kmer shiftRight(char c) {
+        return shiftRight(validateLookup[c]);
+    }
+
+    public Kmer shiftLeft(char c) {
+        return shiftLeft(validateLookup[c]);
+    }
+
+    public Kmer shiftRight(byte b) {
+        Kmer ret = new Kmer(this);
+        byte overflow = b;
+        byte tmp;
+        for(int index = 0;index < ret.kmer.length - 1;index++) {
+            tmp = (byte)(ret.kmer[index] & 0x3);
+            ret.kmer[index] = (ret.kmer[index] >>> 2) | (overflow << 62);
+            overflow = tmp;
+        }
+        ret.kmer[ret.kmer.length - 1] = (ret.kmer[ret.kmer.length - 1] >>> 2) | ((long)overflow << ((ret.lastFill - 1) * 2));
+
+        return ret;
+    }
+
+    public Kmer shiftLeft(byte b) {
+        Kmer ret = new Kmer(this);
+        byte overflow = b;
+        byte tmp;
+
+        tmp = (byte)((ret.kmer[ret.kmer.length - 1] >>> ((ret.lastFill - 1) * 2)) & 0x3);
+        ret.kmer[ret.kmer.length - 1] = (ret.kmer[ret.kmer.length - 1] << 2) | ((long)overflow & 0x3);
+        overflow = tmp;
+
+        for(int index = ret.kmer.length - 2;index >= 0;index--) {
+            tmp = (byte)((ret.kmer[index] >>> 62) & 0x3);
+            ret.kmer[index] = (ret.kmer[index] << 2) | (overflow);
+            overflow = tmp;
+        }
+
+        return ret;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder buf = new StringBuilder();
+        for (int seg = kmer.length - 1; seg >=0;seg--) {
+            int index = 32;
+            if (seg == kmer.length - 1) {
+                index = lastFill;
+            }
+            long l = kmer[seg];
+            for (; index > 0; index--) {
+                buf.append(intToChar[(int) (l & 0x3)]);
+                l = l >> 2;
+            }
+        }
+
+        return buf.reverse().toString();
+    }
+}
