@@ -16,8 +16,11 @@
  */
 package edu.msu.cme.rdp.kmer;
 
+import edu.msu.cme.rdp.kmer.io.KmerStart;
+import edu.msu.cme.rdp.kmer.io.KmerStartsWriter;
 import edu.msu.cme.rdp.kmer.trie.KmerGenerator;
 import edu.msu.cme.rdp.kmer.trie.KmerTrie;
+import edu.msu.cme.rdp.kmer.trie.KmerTrie.RefPos;
 import edu.msu.cme.rdp.kmer.trie.KmerTrie.TrieLeaf;
 import edu.msu.cme.rdp.readseq.SequenceType;
 import edu.msu.cme.rdp.readseq.readers.SequenceReader;
@@ -26,7 +29,6 @@ import edu.msu.cme.rdp.readseq.utils.IUBUtilities;
 import edu.msu.cme.rdp.readseq.utils.ProteinUtils;
 import edu.msu.cme.rdp.readseq.utils.SeqUtils;
 import java.io.File;
-import java.io.PrintStream;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +39,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.Options;
 import edu.msu.cme.rdp.readseq.readers.Sequence;
+import java.io.IOException;
 import java.util.ArrayList;
 import org.apache.commons.cli.CommandLine;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +60,7 @@ public class KmerFilter {
     }
     private static final ReentrantLock outputLock = new ReentrantLock();
 
-    private static void processSeq(Sequence querySeq, List<String> refLabels, KmerTrie kmerTrie, PrintStream out, int wordSize, boolean translQuery, int translTable, boolean reverse) {
+    private static void processSeq(Sequence querySeq, List<String> refLabels, KmerTrie kmerTrie, KmerStartsWriter out, int wordSize, boolean translQuery, int translTable, boolean reverse) throws IOException {
 
         String seqString = querySeq.getSeqString();
 
@@ -107,9 +110,17 @@ public class KmerFilter {
             if (leaf != null) {
                 outputLock.lock();
                 try {
-                    for(Integer refId : leaf.getRefSets()) {
-                        for(Integer modelStart : leaf.getModelStarts(refId)) {
-                            out.println(refLabels.get(refId) + "\t" + querySeq.getSeqName() + "\t" + new String(kmer) + "\t" + (reverse ? "-" : "") + (frame + 1) + ((translQuery) ? "\t" + new String(protKmer) + "\t" : "\t") + leaf.getFrame() + "\t" + leaf.getCount() + "\t" + modelStart);
+                    for (Integer refId : leaf.getRefSets()) {
+                        for (RefPos refPos : leaf.getModelStarts(refId)) {
+
+                            out.write(new KmerStart(refLabels.get(refId),
+                                    querySeq.getSeqName(),
+                                    refPos.seqid,
+                                    new String(kmer),
+                                    (reverse ? -(frame + 1) : (frame + 1)),
+                                    refPos.modelPos,
+                                    translQuery,
+                                    (translQuery ? new String(protKmer) : null)));
                         }
                     }
                 } finally {
@@ -126,7 +137,7 @@ public class KmerFilter {
         final SeqReader queryReader;
         final SequenceType querySeqType;
         final File queryFile;
-        final PrintStream out;
+        final KmerStartsWriter out;
         final boolean translQuery;
         final int wordSize;
         final int translTable;
@@ -143,9 +154,9 @@ public class KmerFilter {
             }
 
             if (cmdLine.hasOption("out")) {
-                out = new PrintStream(cmdLine.getOptionValue("out"));
+                out = new KmerStartsWriter(cmdLine.getOptionValue("out"));
             } else {
-                out = System.out;
+                out = new KmerStartsWriter(System.out);
             }
 
             if (cmdLine.hasOption("aligned")) {
@@ -161,10 +172,10 @@ public class KmerFilter {
             }
 
             if (cmdLine.hasOption("threads")) {
-		maxThreads = Integer.valueOf(cmdLine.getOptionValue("threads"));
-	    } else {
-		maxThreads = Runtime.getRuntime().availableProcessors();
-	    }
+                maxThreads = Integer.valueOf(cmdLine.getOptionValue("threads"));
+            } else {
+                maxThreads = Runtime.getRuntime().availableProcessors();
+            }
 
 
             queryFile = new File(args[1]);
@@ -221,7 +232,7 @@ public class KmerFilter {
                 Sequence seq;
 
                 while ((seq = seqReader.readNextSequence()) != null) {
-                    if(seq.getSeqName().startsWith("#")) {
+                    if (seq.getSeqName().startsWith("#")) {
                         continue;
                     }
                     if (alignedSeqs) {
@@ -231,7 +242,7 @@ public class KmerFilter {
                     }
                 }
                 seqReader.close();
-                
+
                 refLabels.add(refName);
             }
 
@@ -247,9 +258,9 @@ public class KmerFilter {
         long seqCount = 0;
         final int maxTasks = 25000;
 
-        /*if (args.length == 4) {
-            maxThreads = Integer.valueOf(args[3]);
-        } else {*/
+        /*
+         * if (args.length == 4) { maxThreads = Integer.valueOf(args[3]); } else {
+         */
 
         //}
 
@@ -281,8 +292,12 @@ public class KmerFilter {
             Runnable r = new Runnable() {
 
                 public void run() {
-                    processSeq(threadSeq, refLabels, kmerTrie, out, wordSize, translQuery, translTable, false);
-                    processSeq(threadSeq, refLabels, kmerTrie, out, wordSize, translQuery, translTable, true);
+                    try {
+                        processSeq(threadSeq, refLabels, kmerTrie, out, wordSize, translQuery, translTable, false);
+                        processSeq(threadSeq, refLabels, kmerTrie, out, wordSize, translQuery, translTable, true);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
 
                     processed.incrementAndGet();
                     outstandingTasks.decrementAndGet();
@@ -302,7 +317,7 @@ public class KmerFilter {
         service.shutdown();
         service.awaitTermination(1, TimeUnit.DAYS);
 
-        System.err.println("Processed " + processed + " sequences in " + (System.currentTimeMillis() - startTime) + " ms");
+        System.err.println("Finished Processed " + processed + " sequences in " + (System.currentTimeMillis() - startTime) + " ms");
 
         out.close();
     }

@@ -16,6 +16,7 @@
  */
 package edu.msu.cme.rdp.kmer.set;
 
+import edu.msu.cme.rdp.kmer.Kmer;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -29,7 +30,8 @@ public class NuclKmerGeneratorTest {
     public void testGenerator() {
         String seq = "agtcgctacatgaactgactacttaggttaacgtcatgcctaagcttacatacg";
         NuclKmerGenerator kmer = new NuclKmerGenerator(seq, 30);
-        long[] expected = new long[]{205411726394520252L,
+        long[] expected = new long[]{
+            205411726394520252L,
             821646905578081008L,
             980744613098630081L,
             464213938573979398L,
@@ -87,14 +89,88 @@ public class NuclKmerGeneratorTest {
         int index = 0;
 
         while (kmer.hasNext()) {
-            long val = kmer.next();
+            Kmer temp = kmer.next();
+            long val = temp.getPart(0);
             assertEquals(expected[index], val);
-            assertEquals(expectedKmers[index], kmer.decodeLong(val));
+            assertEquals(expectedKmers[index], temp.toString());
             assertEquals(index + 1, kmer.getPosition());
             index++;
         }
     }
 
+    @Test
+    public void testKmerwithN() {
+        String seq = "agtcgctacatgaactgactacttaggttaacgNctacttaggttaacgtcatgcctaagcttacatacg";
+        NuclKmerGenerator kmer = new NuclKmerGenerator(seq, 30);
+        long[] expected = new long[]{
+            205411726394520252L,
+            821646905578081008L,
+            980744613098630081L,
+            464213938573979398L,
+            
+            513176993507164796L,
+            899786469421812209L,
+            140381363866707908L,
+            561525455466831635L,
+            1093180317260479564L,
+            913956755221377329L,
+            197062507064968390L
+        };
+
+        String[] expectedKmers = new String[]{
+            "agtcgctacatgaactgactacttaggtta",
+            "gtcgctacatgaactgactacttaggttaa",
+            "tcgctacatgaactgactacttaggttaac",
+            "cgctacatgaactgactacttaggttaacg",
+            
+            "ctacttaggttaacgtcatgcctaagctta",
+            "tacttaggttaacgtcatgcctaagcttac",
+            "acttaggttaacgtcatgcctaagcttaca",
+            "cttaggttaacgtcatgcctaagcttacat",
+            "ttaggttaacgtcatgcctaagcttacata",
+            "taggttaacgtcatgcctaagcttacatac",
+            "aggttaacgtcatgcctaagcttacatacg"
+        };
+
+        int index = 0;
+
+        while (kmer.hasNext()) {
+            Kmer temp = kmer.next();
+            long val = temp.getPart(0);
+            assertEquals(expected[index], val);
+            assertEquals(expectedKmers[index], temp.toString());
+            assertEquals(index + 1, kmer.getPosition());
+            index++;
+            if ( index == 4) break;
+        }
+        
+        // after N
+        while (kmer.hasNext()) {
+            Kmer temp = kmer.next();
+            long val = temp.getPart(0);
+            assertEquals(expected[index], val);
+            assertEquals(expectedKmers[index], temp.toString());
+            assertEquals(index + 31, kmer.getPosition());
+            index++;
+        }
+        
+        
+        String seq2 = "agtcgctacatgaactgactacttaggttaacgnct";
+        kmer = new NuclKmerGenerator(seq2, 30);
+        index = 0;
+
+        while (kmer.hasNext()) {
+            Kmer temp = kmer.next();
+            long val = temp.getPart(0);
+            assertEquals(expected[index], val);
+            assertEquals(expectedKmers[index], temp.toString());
+            assertEquals(index + 1, kmer.getPosition());
+            index++;
+        }
+        assertEquals(index, 4);
+    }
+    
+    
     @Test
     public void testInvalidKmer() {
         String str = "acgty";
@@ -114,11 +190,11 @@ public class NuclKmerGeneratorTest {
 
         try {
             NuclKmerGenerator kmer = new NuclKmerGenerator(str, 2);
-            assertEquals(1L, (long)kmer.next());
+            assertEquals(1L, (long)kmer.next().getPart(0));
             assertEquals(1, kmer.getPosition());
-            assertEquals(6L, (long)kmer.next());
+            assertEquals(6L, (long)kmer.next().getPart(0));
             assertEquals(2, kmer.getPosition());
-            assertEquals(11L, (long)kmer.next());
+            assertEquals(11L, (long)kmer.next().getPart(0));
             assertEquals(3, kmer.getPosition());
             kmer.next();
             fail("Next should've triggered an exception for invalid character");

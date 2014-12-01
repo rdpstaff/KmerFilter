@@ -16,9 +16,10 @@
  */
 package edu.msu.cme.rdp.kmer.set;
 
-import edu.msu.cme.rdp.readseq.utils.SeqUtils;
-import java.util.Arrays;
-import java.util.Iterator;
+import edu.msu.cme.rdp.kmer.Kmer;
+import edu.msu.cme.rdp.kmer.ProtKmer;
+import edu.msu.cme.rdp.readseq.utils.ProtBinMapping;
+import static edu.msu.cme.rdp.readseq.utils.SeqUtils.proteinAlphabet;
 
 /**
  *
@@ -26,71 +27,52 @@ import java.util.Iterator;
  */
 public class ProtKmerGenerator implements KmerGenerator {
 
-    private char[] bases;
-    private int index;
-    private int position;
-    private Long next = null;
-    private long value;
-    private final long mask;
+    private final char[] bases;
     private final int k;
-    private static final byte[] asciiMap = new byte[127];
+    private Kmer next;
+
+    private int index;     // index in the seqstring
+    private int position;  // model position of the kmer found, may not be the kmer returned
+    private int curModelPosition; // the model position of the current returning kmer
     private boolean modelOnly = false;
-
-    static {
-        byte alpha = 0;
-        Arrays.fill(asciiMap, (byte) -1);
-
-        for (char c : SeqUtils.proteinAlphabet) {
-            if (Character.isUpperCase(c)) {
-                asciiMap[c] = asciiMap[Character.toLowerCase(c)] = alpha++;
-            }
-        }
-
-        asciiMap['*'] = alpha++;
-
-        if (alpha != 26) {
-            throw new IllegalStateException("More than 25 amino acids...");
-        }
-    }
+   
 
     public ProtKmerGenerator(String seq, int k) {
         this(seq, k, false);
     }
 
     public ProtKmerGenerator(String seq, int k, boolean modelOnly) {
-        if (k > 10) {
-            throw new IllegalArgumentException("K-mer size cannot be larger than 31");
+        if (k > 24) {
+            throw new IllegalArgumentException("K-mer size cannot be larger than 24");
         }
 
         if (seq.length() < k) {
             throw new IllegalArgumentException("Sequence length is less than the kmer length");
         }
 
-        bases = seq.toCharArray();
-        mask = 0xffffffffffffffffL ^ (0xffffffffffffffffL << (k * 5));
+        this.bases = seq.toCharArray();
         this.k = k;
         this.modelOnly = modelOnly;
-
-        value = 0;
         index = 0;
         position = 1;
-        next = nextInternal(0);
+        next = getFirstKmer(0);
     }
 
-    private void push(char c) {
-        if (asciiMap[c] == -1) {
-            throw new IllegalArgumentException("Unknown prot base " + c);
-        }
-        value = value << 5;
-        value |= asciiMap[c];
-        value &= mask;
+
+    public boolean hasNext() {
+        
+        return next != null;
     }
 
-    private Long nextInternal() {
-        return nextInternal(k - 1);
+    public Kmer next() {
+        Kmer ret = next;
+        curModelPosition = position;
+        findNextKmer(k -1);
+        return ret;
     }
 
-    private Long nextInternal(int klength) {
+    private Kmer getFirstKmer(int klength){         
+        char[] kmerStr = new char[k];
         while (index < bases.length) {
             char base = bases[index++];
 
@@ -100,47 +82,70 @@ public class ProtKmerGenerator implements KmerGenerator {
                 }
                 klength = 0;
             } else {
-                if (!modelOnly || (modelOnly && base != '.')) {
-                    push(base);
+                if (!modelOnly || (modelOnly && (base != '.' && proteinAlphabet.contains(base) && base != '*'))) {
+                    if (ProtBinMapping.asciiMap[base] == -1) {
+                        throw new IllegalArgumentException("Unknown prot base " + base);
+                    }
+                    kmerStr[klength] = base;
                     position++;
                     klength++;
                 }
+                
+                if (klength == k) {
+                    curModelPosition = position;
+                    return new ProtKmer(kmerStr);
+                }
             }
-            if (klength == k) {
-                return value;
-            }
-        }
 
+        }
+        
         return null;
     }
+    
+    private void findNextKmer(int klength){  
+        if (next == null){
+            return ;
+        }
 
+        while (index < bases.length) {
+            char base = bases[index++];
+
+            if (modelOnly && (Character.isLowerCase(base) || base == '-' || base == 'X' || base == 'x')) {
+                if(base == '-' || base == 'X') {
+                    position++;
+                }
+                klength = 0;
+            } else {
+                // make sure it's a valid amino acid
+                if (!modelOnly ||  (modelOnly && (base != '.' && proteinAlphabet.contains(base) && base != '*')) ) {
+                    if (ProtBinMapping.asciiMap[base] == -1) {
+                        throw new IllegalArgumentException("Unknown prot base " + base);
+                    }
+                    next = next.shiftLeft(base);
+                    position++;
+                    klength++;
+                }
+                if ( klength == k){
+                    return ;
+                }
+            }
+
+        }
+        
+        if (klength != k) {  // not a valid kmer
+            next = null; 
+        }
+        
+    }
+    
+    
     /**
      * Get the position of the FIRST CHARACTER in this kmer
      * in the sequence
      * @return
      */
     public int getPosition() {
-        return position - k;
-    }
-
-    @Override
-    public boolean hasNext() {
-        if (next == null) {
-            next = nextInternal();
-        }
-
-        return next != null;
-    }
-
-    @Override
-    public Long next() {
-        if (!hasNext()) {
-            return null;
-        }
-        Long l = next;
-        next = null;
-
-        return l;
+        return curModelPosition - k ;
     }
 
     @Override
@@ -148,39 +153,32 @@ public class ProtKmerGenerator implements KmerGenerator {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    public String decodeLong(long v) {
-
-        StringBuilder ret = new StringBuilder();
-        for (int i = 0; i < k; i++) {
-            ret.append(tochar((byte) (v & 0x1f)));
-            v >>= 5;
-        }
-
-        return ret.reverse().toString();
-    }
-
-    private static final char tochar(byte c) {
-        for (int index = 96; index < asciiMap.length; index++) {
-            if (asciiMap[index] == c) {
-                return (char) index;
-            }
-        }
-
-        return '?';
-    }
 
     public static void main(String[] args) {
-        String seq = "tmamrqcalygkggigkstttqnlvaalaemgkkvmivgcdpkadstrlilhskaqgtvmemaasagsvedleledvlqigfggvkcvesggpepgvgcagrgvitainfleeegaysddldfvfydvlgdvvcg";
-        ProtKmerGenerator kmer = new ProtKmerGenerator(seq, 5);
+        String seq = "tmamrqcalygkggigkstttqnlvaalaemgkkvmiv";
+        ProtKmerGenerator kmer = new ProtKmerGenerator(seq, 20);
         int i = 0;
-        while (kmer.hasNext()) {
-            long v = kmer.next();
-            String s = kmer.decodeLong(v);
 
+        while (kmer.hasNext()) {
+            Kmer v = kmer.next();
+           
             for (int index = 0; index < i; index++) {
                 System.out.print(" ");
             }
-            System.out.println(s);
+            System.out.println(v.toString() + " " + kmer.getPosition());
+            i++;
+        }
+        
+        seq = "TMAMR-CalGK.GGIGKSTTTQNLVAALAEMGKKVM";
+        kmer = new ProtKmerGenerator(seq, 20, true);
+        i = 0;
+        while (kmer.hasNext()) {
+            Kmer v = kmer.next();
+           
+            for (int index = 0; index < i; index++) {
+                System.out.print(" ");
+            }
+            System.out.println(v.toString() + " " + kmer.getPosition());
             i++;
         }
     }

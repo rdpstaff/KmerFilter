@@ -16,6 +16,7 @@
  */
 package edu.msu.cme.rdp.kmer.set;
 
+import edu.msu.cme.rdp.kmer.Kmer;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -290,8 +291,9 @@ public class ProtKmerGeneratorTest {
         int index = 0;
 
         while (kmer.hasNext()) {
-            long val = kmer.next();
-            assertEquals(expectedKmers[index], kmer.decodeLong(val));
+            Kmer temp = kmer.next();
+            long val = temp.getPart(0);
+            assertEquals(expectedKmers[index], temp.toString());
             assertEquals(expected[index], val);
             assertEquals(index + 1, kmer.getPosition());
             index++;
@@ -302,8 +304,8 @@ public class ProtKmerGeneratorTest {
     public void testInvalidKmer() {
         String str = "acgto";
         try {
-            new ProtKmerGenerator(str, 12);
-            fail("Kmer size of 32 should have triggered an exception");
+            new ProtKmerGenerator(str, 25);
+            fail("Kmer size of 25 should have triggered an exception");
         } catch (IllegalArgumentException e) {
         }
 
@@ -315,13 +317,13 @@ public class ProtKmerGeneratorTest {
 
         try {
             ProtKmerGenerator kmer = new ProtKmerGenerator(str, 2);
-            assertEquals(134L, (long) kmer.next());
+            assertEquals(134L, (long) kmer.next().getPart(0));
             assertEquals(1, kmer.getPosition());
-            assertEquals(195L, (long) kmer.next());
+            assertEquals(195L, (long) kmer.next().getPart(0));
             assertEquals(2, kmer.getPosition());
-            assertEquals(111L, (long) kmer.next());
+            assertEquals(111L, (long) kmer.next().getPart(0));
             assertEquals(3, kmer.getPosition());
-            long l = kmer.next();
+            long l = kmer.next().getPart(0);
             fail("Next should've triggered an exception for invalid character");
         } catch (IllegalArgumentException e) {
         }

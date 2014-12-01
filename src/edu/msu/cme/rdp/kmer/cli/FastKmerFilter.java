@@ -16,12 +16,13 @@
  */
 package edu.msu.cme.rdp.kmer.cli;
 
+import edu.msu.cme.rdp.kmer.Kmer;
+import edu.msu.cme.rdp.kmer.io.KmerStart;
+import edu.msu.cme.rdp.kmer.io.KmerStartsWriter;
 import edu.msu.cme.rdp.kmer.set.KmerGenerator;
 import edu.msu.cme.rdp.kmer.set.KmerSet;
 import edu.msu.cme.rdp.kmer.set.NuclKmerGenerator;
 import edu.msu.cme.rdp.kmer.set.ProtKmerGenerator;
-import edu.msu.cme.rdp.kmer.trie.KmerTrie;
-import edu.msu.cme.rdp.kmer.trie.KmerTrie.TrieLeaf;
 import edu.msu.cme.rdp.readseq.SequenceType;
 import edu.msu.cme.rdp.readseq.readers.SequenceReader;
 import edu.msu.cme.rdp.readseq.readers.SeqReader;
@@ -29,7 +30,6 @@ import edu.msu.cme.rdp.readseq.utils.IUBUtilities;
 import edu.msu.cme.rdp.readseq.utils.ProteinUtils;
 import edu.msu.cme.rdp.readseq.utils.SeqUtils;
 import java.io.File;
-import java.io.PrintStream;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +40,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.cli.Options;
 import edu.msu.cme.rdp.readseq.readers.Sequence;
+import java.io.IOException;
 import java.util.*;
 import org.apache.commons.cli.CommandLine;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +55,7 @@ public class FastKmerFilter {
 
         int modelPos;
         int refFileIndex;
+        String refSeqid;
 
         @Override
         public boolean equals(Object obj) {
@@ -91,7 +93,7 @@ public class FastKmerFilter {
     }
     private static final ReentrantLock outputLock = new ReentrantLock();
 
-    private static void processSeq(Sequence querySeq, List<String> refLabels, KmerSet<Set<RefKmer>> kmerSet, PrintStream out, int wordSize, boolean translQuery, int translTable, boolean reverse) {
+    private static void processSeq(Sequence querySeq, List<String> refLabels, KmerSet<Set<RefKmer>> kmerSet, KmerStartsWriter out, int wordSize, boolean translQuery, int translTable, boolean reverse) throws IOException {
 
         String seqString = querySeq.getSeqString();
 
@@ -115,7 +117,7 @@ public class FastKmerFilter {
         }
 
         int frame = 0;
-        long kmer;
+        Kmer kmer;
         Set<RefKmer> leaves = null;
         List<char[]> nuclKmers = null;
         String nuclKmer;
@@ -125,7 +127,7 @@ public class FastKmerFilter {
         for (int gen = 0; gen < kmerGens.length; gen++) {
             while (kmerGens[gen].hasNext()) {
                 kmer = kmerGens[gen].next();
-                leaves = kmerSet.get(kmer);
+                leaves = kmerSet.get(kmer.getLongKmers());
 
                 if (leaves != null) {
                     outputLock.lock();
@@ -138,22 +140,22 @@ public class FastKmerFilter {
 
                             nuclPos = (kmerGens[gen].getPosition() - 1) * 3 + gen;
                             nuclKmer = new String(nuclKmers.get(nuclPos));
-                            protKmer = kmerGens[gen].decodeLong(kmer);
+                            protKmer = kmer.toString();
                         } else {
                             nuclPos = kmerGens[gen].getPosition() - 1;
                             nuclKmer = new String(nuclKmers.get(nuclPos));
 
                         }
-
                         for (RefKmer refKmer : leaves) {
-                            out.println(refLabels.get(refKmer.refFileIndex) + "\t"
-                                    + querySeq.getSeqName() + "\t"
-                                    + nuclKmer + "\t"
-                                    + (reverse ? "-" : "") + (frame + 1)
-                                    + ((translQuery) ? "\t" + protKmer + "\t" : "\t")
-                                    + "-\t"
-                                    + "-\t"
-                                    + refKmer.modelPos);
+
+                            out.write(new KmerStart(refLabels.get(refKmer.refFileIndex),
+                                    querySeq.getSeqName(),
+                                    refKmer.refSeqid,
+                                    nuclKmer,
+                                    (reverse ? -(frame + 1) : (frame + 1)),
+                                    refKmer.modelPos,
+                                    translQuery,
+                                    (translQuery? protKmer : null)));
                         }
                     } finally {
                         outputLock.unlock();
@@ -169,7 +171,7 @@ public class FastKmerFilter {
         final SeqReader queryReader;
         final SequenceType querySeqType;
         final File queryFile;
-        final PrintStream out;
+        final KmerStartsWriter out;
         final boolean translQuery;
         final int wordSize;
         final int translTable;
@@ -187,9 +189,9 @@ public class FastKmerFilter {
             }
 
             if (cmdLine.hasOption("out")) {
-                out = new PrintStream(cmdLine.getOptionValue("out"));
+                out = new KmerStartsWriter(cmdLine.getOptionValue("out"));
             } else {
-                out = System.out;
+                out = new KmerStartsWriter(System.out);
             }
 
             if (cmdLine.hasOption("aligned")) {
@@ -276,7 +278,8 @@ public class FastKmerFilter {
                     }
 
                     while (kmers.hasNext()) {
-                        long next = kmers.next();
+                        Kmer temp = kmers.next();
+                        long[] next = temp.getLongKmers();
                         Set<RefKmer> refKmers = kmerSet.get(next);
                         if (refKmers == null) {
                             refKmers = new HashSet();
@@ -286,6 +289,7 @@ public class FastKmerFilter {
                         RefKmer kmerRef = new RefKmer();
                         kmerRef.modelPos = kmers.getPosition();
                         kmerRef.refFileIndex = refLabels.size();
+                        kmerRef.refSeqid = seq.getSeqName();
                         refKmers.add(kmerRef);
                     }
                 }
@@ -295,8 +299,7 @@ public class FastKmerFilter {
             }
 
         } catch (Exception e) {
-            new HelpFormatter().printHelp("KmerSearch <word_size> <query_file> [name=]<ref_file> ...", options);
-            System.err.println(e.getMessage());
+            new HelpFormatter().printHelp("KmerSearch <kmerSize> <query_file> [name=]<ref_file> ...\nkmerSize should be multiple of 3, (recommend 45, minimum 30, maximum 63) ", options);
             e.printStackTrace();
             System.exit(1);
             throw new RuntimeException("Stupid jvm");  //While this will never get thrown it is required to make sure javac doesn't get confused about uninitialized variables
@@ -360,7 +363,7 @@ public class FastKmerFilter {
         service.shutdown();
         service.awaitTermination(1, TimeUnit.DAYS);
 
-        System.err.println("Processed " + processed + " sequences in " + (System.currentTimeMillis() - startTime) + " ms");
+        System.err.println("Finished Processed " + processed + " sequences in " + (System.currentTimeMillis() - startTime) + " ms");
 
         out.close();
     }

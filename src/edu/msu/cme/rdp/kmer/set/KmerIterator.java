@@ -17,14 +17,42 @@
 package edu.msu.cme.rdp.kmer.set;
 
 import edu.msu.cme.rdp.kmer.Kmer;
+import edu.msu.cme.rdp.kmer.NuclKmer;
 import java.util.Iterator;
 
 /**
  *
- * @author fishjord
+ * @author Jordan Fish <fishjord at msu.edu>
  */
-public interface KmerGenerator extends Iterator<Kmer> {
+public class KmerIterator implements Iterator<Kmer> {
+    private final char[] bases;
+    private Kmer next;
+    private int pos;
 
-    public int getPosition();
+    public KmerIterator(String seq, int k) {
+        this.bases = seq.toCharArray();
+        String firstKmer = seq.substring(0, k);
+        next = new NuclKmer(firstKmer.toCharArray());
+        pos = k;
+    }
 
+    public boolean hasNext() {
+        return next != null;
+    }
+
+    public Kmer next() {
+        Kmer ret = next;
+
+        if (pos < bases.length) {
+            next = next.shiftLeft(bases[pos]);
+            pos++;
+        } else {
+	    next = null;
+	}
+        return ret;
+    }
+
+    public void remove() {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
 }

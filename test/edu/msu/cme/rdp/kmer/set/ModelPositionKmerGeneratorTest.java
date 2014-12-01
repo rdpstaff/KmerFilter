@@ -59,7 +59,7 @@ public class ModelPositionKmerGeneratorTest {
         List<char[]> result = new ArrayList();
         ProtKmerGenerator kmer = new ProtKmerGenerator(testSeq1, k, true);
         while(kmer.hasNext()) {
-            result.add(kmer.decodeLong(kmer.next()).toCharArray());
+            result.add(kmer.next().toString().toCharArray());
         }
 
         for (int index = 0; index < result.size(); index++) {
@@ -71,7 +71,7 @@ public class ModelPositionKmerGeneratorTest {
         kmer = new ProtKmerGenerator(testSeq2, k, true);
         result.clear();
         while(kmer.hasNext()) {
-            result.add(kmer.decodeLong(kmer.next()).toCharArray());
+            result.add(kmer.next().toString().toCharArray());
         }
 
         for (int index = 0; index < result.size(); index++) {
@@ -87,7 +87,7 @@ public class ModelPositionKmerGeneratorTest {
         int index = 0;
 
         while (kmerIt.hasNext()) {
-            char[] kmer = kmerIt.decodeLong(kmerIt.next()).toCharArray();
+            char[] kmer = kmerIt.next().toString().toCharArray();
             assertArrayEquals(new String(kmer) + " testing index " + index + " of expected " + new String(expected1.get(index)) + " compared to " + new String(kmer), expected1.get(index), kmer);
             assertEquals("Model position check", expectedModelPos1[index], kmerIt.getPosition());
             index++;
@@ -99,7 +99,7 @@ public class ModelPositionKmerGeneratorTest {
         index = 0;
 
         while (kmerIt.hasNext()) {
-            char[] kmer = kmerIt.decodeLong(kmerIt.next()).toCharArray();
+            char[] kmer = kmerIt.next().toString().toCharArray();
             assertArrayEquals("Testing index " + index + " of expected " + new String(expected2.get(index)) + " compared to " + new String(kmer), expected2.get(index), kmer);
             assertEquals("Model position check", expectedModelPos2[index], kmerIt.getPosition());
             index++;
@@ -114,7 +114,7 @@ public class ModelPositionKmerGeneratorTest {
         int index = 0;
 
         while (kmerIt.hasNext()) {
-            char[] kmer = kmerIt.decodeLong(kmerIt.next()).toCharArray();
+            char[] kmer = kmerIt.next().toString().toCharArray();
             assertArrayEquals(new String(kmer) + " testing index " + index + " of expected " + new String(expected3.get(index)) + " compared to " + new String(kmer), expected3.get(index), kmer);
             assertEquals("Model position check", expectedModelPos3[index], kmerIt.getPosition());
             index++;

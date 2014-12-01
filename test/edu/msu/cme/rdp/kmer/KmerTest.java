@@ -16,6 +16,7 @@
  */
 package edu.msu.cme.rdp.kmer;
 
+import edu.msu.cme.rdp.readseq.utils.NuclBinMapping;
 import java.util.Random;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -31,30 +32,73 @@ public class KmerTest {
 
         Random rand = new Random();
 
-        for (int length = 1; length < 65; length++) {
-            for (int iteration = 0; iteration < 10; iteration++) {
+        for (int length = 1; length < 15; length++) {
+           for (int iteration = 0; iteration < 10; iteration++) {
                 StringBuilder strKmer = new StringBuilder();
                 for (int index = 0; index < length; index++) {
-                    strKmer.append(Kmer.intToChar[rand.nextInt(4)]);
+                    strKmer.append(NuclBinMapping.intToChar[rand.nextInt(4)]);
                 }
-
-                Kmer kmer = new Kmer(strKmer.toString().toCharArray());
+       
+                NuclKmer kmer = new NuclKmer(strKmer.toString().toCharArray());
                 assertEquals(strKmer.toString(), kmer.toString());
 
                 StringBuilder rightShift = new StringBuilder(strKmer.toString());
-
-                char shift = Kmer.intToChar[rand.nextInt(4)];
+                
+                char shift = NuclBinMapping.intToChar[rand.nextInt(4)];
                 rightShift.insert(0, shift);
                 rightShift.deleteCharAt(rightShift.length() - 1);
-                assertEquals("Shift Right Original kmer: " + strKmer + ", length: " + length + ", shift=" + shift,rightShift.toString(), kmer.shiftRight(shift).toString());
 
+                Kmer newKmer = kmer.shiftRight(shift);
+                assertEquals("Shift Right Original kmer: " + strKmer + ", shift=" + shift,rightShift.toString(), newKmer.toString());
+                                
+                // test decodedLong()
+                String decodedStr = newKmer.decodeLong(newKmer.getLongKmers());
+                assertEquals(rightShift.toString(), decodedStr);
+                
                 StringBuilder leftShift = new StringBuilder(strKmer.toString());
-                shift = Kmer.intToChar[rand.nextInt(4)];
+                shift = NuclBinMapping.intToChar[rand.nextInt(4)];
 
                 leftShift.append(shift);
                 leftShift.deleteCharAt(0);
-		assertEquals("Shift Left Original kmer: " + strKmer + ", length: " + length + ", shift=" + shift, leftShift.toString(), kmer.shiftLeft(shift).toString());
-            }
+
+                newKmer = kmer.shiftLeft(shift);
+                assertEquals("Shift Left Original kmer: " + strKmer + ", length: " + length + ", shift=" + shift, leftShift.toString(), newKmer.toString());
+           }  
+        
         }
     }
+    
+    /**
+     * Test of shiftRight method, of class ProtKmer.
+     */
+    @Test
+    
+    public void testShift() {
+        System.out.println("shift");
+        String seq = "agtcgctacatgaactgactacttaggttaacgtcatgcctaagcttacatacgcgcgccgg";
+        String[] expectedKmers = new String[]{
+            "agtcgctacatgaactgactacttaggttaacgtcatgcctaagcttacatacgcgcgcc",
+            "gtcgctacatgaactgactacttaggttaacgtcatgcctaagcttacatacgcgcgccg",
+            "tcgctacatgaactgactacttaggttaacgtcatgcctaagcttacatacgcgcgccgg"
+        };
+        int size = 60;
+        int position = size;
+        Kmer kmer = new NuclKmer(seq.substring(0, size).toCharArray());
+        assertEquals(expectedKmers[position - size], kmer.toString());
+        // shift left
+        while ( position < seq.length() ) {
+            kmer = kmer.shiftLeft(seq.charAt(position));   
+            assertEquals(expectedKmers[position - size +1], kmer.toString());
+            position++;
+        }
+        
+        // shift right
+        while ( (position -size -1) >= 0 ) {
+            kmer = kmer.shiftRight(seq.charAt(position -size -1));   
+            assertEquals(expectedKmers[position - size -1], kmer.toString());
+            position--;
+        }
+        
+    }
+    
 }

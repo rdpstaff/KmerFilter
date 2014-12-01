@@ -21,14 +21,14 @@ public class ExactCounting {
 	
 	SeqReader reader = new SequenceReader(inFile);
 	Sequence seq;
-	long kmer;
+	long[] kmer;
 	Integer cnt;
 
 	long startTime = System.currentTimeMillis();
 	while((seq = reader.readNextSequence()) != null) {
 	    kmerGen = new NuclKmerGenerator(seq.getSeqString(), k);
 	    while(kmerGen.hasNext()) {
-		kmer = kmerGen.next();
+		kmer = kmerGen.next().getLongKmers();
 
 		cnt = kmers.get(kmer);
 		if(cnt == null) {
@@ -48,9 +48,9 @@ public class ExactCounting {
 
 	Map<Integer, Integer> occurHist = new HashMap();
 	PrintStream out = new PrintStream(outFile);
-	for(long thisKmer : kmers.getKeys()) {
+	for(long[] thisKmer : kmers.getKeys()) {
 	    cnt = kmers.get(thisKmer);
-	    out.println(kmerGen.decodeLong(thisKmer) + "\t" + cnt);
+	    out.println(thisKmer.toString() + "\t" + cnt);
 
 	    if(!occurHist.containsKey(cnt)) {
 		occurHist.put(cnt, 0);

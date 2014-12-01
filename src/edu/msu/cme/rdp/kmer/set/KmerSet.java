@@ -17,6 +17,7 @@
 package edu.msu.cme.rdp.kmer.set;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -28,11 +29,11 @@ public class KmerSet<E> implements Serializable {
 
     private static class Item<E> implements Serializable {
 
-        private final long key;
+        private final long[] key;
         private E value;
         private Item<E> next;
 
-        public Item(long key, E value) {
+        public Item(long[] key, E value) {
             this.key = key;
             this.value = value;
         }
@@ -41,8 +42,8 @@ public class KmerSet<E> implements Serializable {
     private Item<E>[] items = new Item[size];
     private int elems = 0;
 
-    public void add(long key, E val) {
-        int bucket = (int) (key % size);
+    public void add(long[] key, E val) {
+        int bucket = Math.abs( (int) (key[0] % size));
 
         if (items[bucket] == null) {
             items[bucket] = new Item<E>(key, val);
@@ -53,7 +54,7 @@ public class KmerSet<E> implements Serializable {
             boolean found = false;
 
             while (item != null) {
-                if (item.key == key) {
+                if (Arrays.equals(item.key, key) ) {
                     item.value = val;
                     found = true;
                     break;
@@ -75,12 +76,12 @@ public class KmerSet<E> implements Serializable {
         return elems;
     }
 
-    public E get(long key) {
-        int bucket = (int) (key % size);
+    public E get(long[] key) {
+        int bucket =  Math.abs( (int) (key[0] % size) );
         Item<E> item = items[bucket];
 
         while (item != null) {
-            if (item.key == key) {
+            if (Arrays.equals(item.key, key)) {
                 return item.value;
             }
             item = item.next;
@@ -126,12 +127,12 @@ public class KmerSet<E> implements Serializable {
         System.err.println("Average tail: " + ((double)tail / collisions));
     }
     
-    public boolean containsKey(long key) {
+    public boolean containsKey(long[] key) {
         return get(key) != null;
     }
 
-    public Set<Long> getKeys() {
-        Set<Long> keys = new HashSet();
+    public Set<long[]> getKeys() {
+        Set<long[]> keys = new HashSet();
         Item<E> item = null;
 
         for (int index = 0; index < items.length; index++) {

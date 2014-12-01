@@ -16,6 +16,7 @@
  */
 package edu.msu.cme.rdp.kmer.set;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.Map;
@@ -59,23 +60,24 @@ public class KmerSetTest {
             197062507064968390L
         };
         
-        Map<Long, Integer> expected = new HashMap();
         
         KmerSet<Integer> set = new KmerSet();
         
-        for(int index = 0;index < values.length;index++) {
-            set.add(values[index], index);
-            expected.put(values[index], index);
+        for(int index = 0;index < values.length;index +=2) {
+            long[] temp = new long[2];
+            temp[0] = values[index];
+            temp[1] = values[index +1];
+            set.add(temp, index);
         }
         
-        assertEquals(expected.size(), set.size());
+        assertEquals(values.length/2, set.size());
         
-        for(int index = 0;index < values.length;index++) {
-            assertEquals((int)expected.get(values[index]), (int)set.get(values[index]));
+        for(int index = 0;index < values.length;index +=2) {
+            long[] temp = new long[2];
+            temp[0] = values[index];
+            temp[1] = values[index +1];
+            assertEquals(index, (int)set.get(temp));
         }
         
-        Set<Long> keys  = expected.keySet();
-        keys.removeAll(set.getKeys());
-        assertEquals(keys + "", 0, keys.size());
     }
 }

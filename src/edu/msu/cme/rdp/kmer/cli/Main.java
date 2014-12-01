@@ -21,7 +21,6 @@ import edu.msu.cme.rdp.kmer.KmerFilter;
 import edu.msu.cme.rdp.kmer.KmerSearch;
 import edu.msu.cme.rdp.kmer.ReadGenerator;
 import edu.msu.cme.rdp.kmer.TrieInfo;
-import edu.msu.cme.rdp.kmer.utils.GenomeExtract;
 import java.util.Arrays;
 
 /**
@@ -31,16 +30,14 @@ import java.util.Arrays;
 public class Main {
     public static void main(String[] args) throws Exception {
         if(args.length == 0) {
-            System.err.println("Commands: genome_extract, kmer_search, kmer_filter, fast_kmer_filter, read_generator, trie_info");
+            System.err.println("Commands: kmer_search, kmer_filter, fast_kmer_filter, read_generator, trie_info");
             return;
         }
 
         String cmd = args[0];
         String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
 
-        if(cmd.equals("genome_extract")) {
-            GenomeExtract.main(newArgs);
-        } else if(cmd.equals("kmer_search")) {
+        if(cmd.equals("kmer_search")) {
             KmerSearch.main(newArgs);
         } else if(cmd.equals("kmer_filter")) {
             KmerFilter.main(newArgs);
@@ -51,7 +48,7 @@ public class Main {
         } else if(cmd.equals("trie_info")) {
             TrieInfo.main(newArgs);
         } else {
-            System.err.println("Commands: genome_extract, kmer_search, kmer_search, read_generator");
+            System.err.println("Commands: kmer_search, kmer_filter, fast_kmer_filter, read_generator, trie_info");
         }
     }
 }

@@ -58,6 +58,11 @@ public class KmerTrie implements Serializable {
         proteinAlphaSize = nextIndex;
     }
 
+    public static class RefPos {
+        public Integer modelPos;
+        public String seqid;
+    }
+
     private abstract static class TrieNode {
     }
 
@@ -71,7 +76,8 @@ public class KmerTrie implements Serializable {
         private int frame = 0;
         private int count = 0;
         private int queryCount = 0;
-        private Map<Integer, Set<Integer>> refSetToModelStarts = new HashMap();
+        private Map<Integer, Set<RefPos>> refSetToModelStarts = new HashMap();
+        private Set<String> seqids = new HashSet();
 
         public TrieLeaf(int frame) {
             this.frame = frame;
@@ -89,7 +95,7 @@ public class KmerTrie implements Serializable {
             return Collections.unmodifiableSet(refSetToModelStarts.keySet());
         }
 
-        public Set<Integer> getModelStarts(int refSet) {
+        public Set<RefPos> getModelStarts(int refSet) {
             return Collections.unmodifiableSet(refSetToModelStarts.get(refSet));
         }
 
@@ -157,14 +163,14 @@ public class KmerTrie implements Serializable {
         return trie;
     }
 
-    private void addKmer(char[] kmer, int frame, int modelPos, int refSet) {
+    private void addKmer(char[] kmer, int frame, int modelPos, int refSet, String seqid) {
         if (kmer.length != k) {
             throw new IllegalArgumentException(new String(kmer) + "'s length doesn't match expected (" + k + ")");
         }
-        addKmer(kmer, 0, frame, modelPos, refSet);
+        addKmer(kmer, 0, frame, modelPos, refSet, seqid);
     }
 
-    private void addKmer(char[] kmer, int offset, int frame, int modelPos, int refSet) {
+    private void addKmer(char[] kmer, int offset, int frame, int modelPos, int refSet, String seqid) {
         if (offset + k > kmer.length) {
             throw new IllegalArgumentException("Array offset doesn't leave enough room for a full kmer");
         }
@@ -180,7 +186,7 @@ public class KmerTrie implements Serializable {
             if(alphaMap[c] == -1) {
                 throw new IllegalArgumentException("kmer contains unmappable character " + c);
             }
-            
+
             if (node.children[alphaMap[c]] == null) {
                 if (index + 1 == end) {
                     curr = new TrieLeaf(frame);
@@ -202,7 +208,10 @@ public class KmerTrie implements Serializable {
         if(!leaf.refSetToModelStarts.containsKey(refSet)) {
             leaf.refSetToModelStarts.put(refSet, new HashSet());
         }
-        leaf.refSetToModelStarts.get(refSet).add(modelPos);
+        RefPos pos = new RefPos();
+        pos.modelPos = modelPos;
+        pos.seqid = seqid;
+        leaf.refSetToModelStarts.get(refSet).add(pos);
     }
 
     public void addSequence(Sequence seq) {
@@ -216,15 +225,15 @@ public class KmerTrie implements Serializable {
 
         for (int index = 0; index <= bases.length - k; index++) {
             if (isProtein) {
-                addKmer(bases, index, -1, -1, refSet);
+                addKmer(bases, index, -1, -1, refSet, seq.getSeqName());
             } else {
-                addKmer(bases, index, frame, -1, refSet);
+                addKmer(bases, index, frame, -1, refSet, seq.getSeqName());
                 frame = (frame > 1) ? 0 : frame++;
             }
         }
         seqCount++;
     }
-    
+
     public void addModelSequence(Sequence seq) {
         addModelSequence(seq, 0);
     }
@@ -235,7 +244,7 @@ public class KmerTrie implements Serializable {
         ModelPositionKmerGenerator kmers = new ModelPositionKmerGenerator(seq.getSeqString(), k, getTreeSeqType());
 
         for (char[] kmer : kmers) {
-            addKmer(kmer, -1, kmers.getModelPosition(), refSet);
+            addKmer(kmer, -1, kmers.getModelPosition(), refSet, seq.getSeqName());
 
         }
         seqCount++;
