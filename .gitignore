@@ -3,5 +3,5 @@
 build
 dist
 lib
-private/
-.DS_Store
+nbproject/private/*
+.*DS_Store
