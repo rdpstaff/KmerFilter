@@ -1,3 +1,7 @@
 .svn
+.class
 build
 dist
+lib
+private/
+.DS_Store
