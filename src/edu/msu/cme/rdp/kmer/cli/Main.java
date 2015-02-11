@@ -29,8 +29,9 @@ import java.util.Arrays;
  */
 public class Main {
     public static void main(String[] args) throws Exception {
+        String usage = "Commands: kmer_search, kmer_filter, fast_kmer_filter, kmer_coverage, shared_kmer, read_generator, trie_info";
         if(args.length == 0) {
-            System.err.println("Commands: kmer_search, kmer_filter, fast_kmer_filter, read_generator, trie_info");
+            System.err.println(usage);
             return;
         }
 
@@ -43,12 +44,16 @@ public class Main {
             KmerFilter.main(newArgs);
         } else if(cmd.equals("fast_kmer_filter")) {
             FastKmerFilter.main(newArgs);
+        } else if(cmd.equals("kmer_coverage")) {
+            KmerCoverage.main(newArgs);
         } else if(cmd.equals("read_generator")) {
             ReadGenerator.main(newArgs);
         } else if(cmd.equals("trie_info")) {
             TrieInfo.main(newArgs);
+        } else if(cmd.equals("shared_kmer")) {
+            SharedKmers.main(newArgs);
         } else {
-            System.err.println("Commands: kmer_search, kmer_filter, fast_kmer_filter, read_generator, trie_info");
+            System.err.println(usage);
         }
     }
 }

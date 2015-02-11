@@ -271,12 +271,12 @@ public class FastKmerFilter {
                     }
 
                     KmerGenerator kmers;
+		try{
                     if (translQuery) { //protein ref
                         kmers = new ProtKmerGenerator(seq.getSeqString(), trieWordSize, alignedSeqs);
                     } else {
                         kmers = new NuclKmerGenerator(seq.getSeqString(), trieWordSize, alignedSeqs);
                     }
-
                     while (kmers.hasNext()) {
                         Kmer temp = kmers.next();
                         long[] next = temp.getLongKmers();
@@ -292,7 +292,10 @@ public class FastKmerFilter {
                         kmerRef.refSeqid = seq.getSeqName();
                         refKmers.add(kmerRef);
                     }
+		}catch(IllegalArgumentException ex){
+                        //System.err.println(seq.getSeqName()+ " " + ex.getMessage());
                 }
+		}
                 seqReader.close();
 
                 refLabels.add(refName);
