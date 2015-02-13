@@ -51,7 +51,7 @@ public class KmerCoverage {
 
     static {
         options.addOption("m", "match_reads_out", true, "output the reads containing matching kmers");
-        options.addOption("t", "threads", true, "#Threads to use");
+        options.addOption("t", "threads", true, "#Threads to use. (default 1)");
     }
  
     private static final String dformat = "%1$.3f";
@@ -244,8 +244,10 @@ public class KmerCoverage {
    public void printCovereage(OutputStream coverage_out, OutputStream abundance_out) throws IOException{
        adjustCount();
         // print out the weighted kmer coverage
+       // we found mean coverage matched the previous biological observation
         PrintStream coverage_outStream = new PrintStream(coverage_out);
-        coverage_outStream.println("#seqid\tmedian_cov\tmean_cov\ttotal_pos\tcovered_pos\tcovered_ratio");
+        coverage_outStream.println("#use mean_cov to adjust the contig abundance, not median_cov ");
+        coverage_outStream.println("#seqid\tmean_cov\tmedian_cov\ttotal_pos\tcovered_pos\tcovered_ratio");
         
         for ( Contig contig: contigMap.values()){
             ArrayList<Double> counts = new ArrayList<Double>();
@@ -257,8 +259,8 @@ public class KmerCoverage {
                 counts.add(contig.coverage[pos]);
             }
             if ( coveredPos > 0){
-                coverage_outStream.println(contig.name +"\t" + String.format(dformat, (StdevCal.calMedian(counts)))
-                + "\t" + String.format(dformat, StdevCal.calMean(counts)) 
+                coverage_outStream.println(contig.name + "\t" + String.format(dformat, StdevCal.calMean(counts))
+                        +"\t" + String.format(dformat, (StdevCal.calMedian(counts)))      
                 + "\t" + counts.size() + "\t" + coveredPos
                 + "\t" + String.format(dformat,(double)coveredPos / (double)contig.coverage.length));
             }else { // no coverage
