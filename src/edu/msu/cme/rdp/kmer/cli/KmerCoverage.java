@@ -59,6 +59,7 @@ public class KmerCoverage {
          
     private ConcurrentHashMap<Integer, Contig> contigMap = new ConcurrentHashMap<Integer, Contig>();
     private ConcurrentHashMap<Kmer, KmerAbund>[] kmerMaps = new ConcurrentHashMap[2];   // the number of times kmer occurred in the contigs
+    private AtomicInteger totalReads = new AtomicInteger();
     private boolean adjustCount = false;
     
     public class Contig{
@@ -209,7 +210,10 @@ public class KmerCoverage {
                 }     
                 
             }              
-        }            
+        }   
+        if ( found ){
+            totalReads.incrementAndGet();
+        }
         if ( outStream != null && found){
             writeSeq(seq, outStream);
         }        
@@ -246,6 +250,7 @@ public class KmerCoverage {
         // print out the weighted kmer coverage
        // we found mean coverage matched the previous biological observation
         PrintStream coverage_outStream = new PrintStream(coverage_out);
+        coverage_outStream.println("#total reads: " + totalReads.intValue());
         coverage_outStream.println("#use mean_cov to adjust the contig abundance, not median_cov ");
         coverage_outStream.println("#seqid\tmean_cov\tmedian_cov\ttotal_pos\tcovered_pos\tcovered_ratio");
         
