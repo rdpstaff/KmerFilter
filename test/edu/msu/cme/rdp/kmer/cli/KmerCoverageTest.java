@@ -102,9 +102,9 @@ public class KmerCoverageTest {
         // check summary
         instance.printCovereage(coverage_out, abundance_out);
         String[] summary = coverage_out.toString().split("\n");
-        assertEquals("contig1\t0.667\t1.100\t30\t30\t1.000", summary[1]);
-        assertEquals("contig3\t0.667\t0.652\t23\t22\t0.957", summary[2]);
-        assertEquals("contig2\t2.000\t1.440\t50\t50\t1.000", summary[3]);
+        assertEquals("contig1\t1.100\t0.667\t30\t30\t1.000", summary[3]);
+        assertEquals("contig3\t0.652\t0.667\t23\t22\t0.957", summary[4]);
+        assertEquals("contig2\t1.440\t2.000\t50\t50\t1.000", summary[5]);
         
     }
 
