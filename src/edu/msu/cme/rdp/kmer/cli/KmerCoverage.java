@@ -41,6 +41,7 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import java.util.Locale;
 
 /**
  *
@@ -50,6 +51,8 @@ public class KmerCoverage {
        private static final Options options = new Options();
 
     static {
+	// set Locale to English to use dot as number separator
+	Locale.setDefault(Locale.ENGLISH);
         options.addOption("m", "match_reads_out", true, "output the reads containing matching kmers");
         options.addOption("t", "threads", true, "#Threads to use. (default 1)");
     }
@@ -126,7 +129,7 @@ public class KmerCoverage {
             if ( seq.getSeqString().length() < kmerSize){
                 continue;
             }
-            processReads(seq, outStream);
+            processReads(seq, outStream);            
         }
         readsReader.close();
         if ( outStream != null){
@@ -139,7 +142,9 @@ public class KmerCoverage {
         return contigMap;
     }
     
-    
+    public int getTotalContigs(){
+        return contigMap.size();
+    }
     /**
      * find the kmers in the contigs
      * @param reader
@@ -345,7 +350,10 @@ public class KmerCoverage {
             }
                    
             final KmerCoverage kmerCoverage = new KmerCoverage( kmerSize, new SequenceReader(new File(args[1])));
-            
+            if ( kmerCoverage.getTotalContigs() == 0){
+                System.out.println("Found 0 contig with length >= kmer size " + kmerSize + " in input file " + args[1] + ". Exit program.");
+                return;
+            }
             final AtomicInteger outstandingTasks = new AtomicInteger();        
             ExecutorService service = Executors.newFixedThreadPool(maxThreads);
 
